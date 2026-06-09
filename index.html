@@ -1,0 +1,818 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>😉 Wink! — 眨眼杀手</title>
+<style>
+* { margin: 0; padding: 0; box-sizing: border-box; }
+
+body {
+  font-family: 'Segoe UI', 'PingFang SC', sans-serif;
+  background: linear-gradient(135deg, #0f0c29, #302b63, #24243e);
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: white;
+  overflow: hidden;
+  user-select: none;
+}
+
+/* ── SCREENS ── */
+.screen { display: none; flex-direction: column; align-items: center; }
+.screen.active { display: flex; }
+
+/* ── START SCREEN ── */
+#start-screen { gap: 28px; text-align: center; padding: 40px 24px; }
+
+.game-title {
+  font-size: 72px;
+  font-weight: 900;
+  line-height: 1;
+  background: linear-gradient(135deg, #f093fb, #f5576c, #fda085);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  animation: titlePulse 2.5s ease-in-out infinite;
+}
+@keyframes titlePulse {
+  0%,100%{ transform: scale(1) rotate(-1deg); }
+  50%{ transform: scale(1.05) rotate(1deg); }
+}
+
+.game-subtitle {
+  font-size: 16px;
+  color: #94a3b8;
+  max-width: 360px;
+  line-height: 1.7;
+}
+
+.diff-row { display: flex; gap: 10px; }
+.diff-btn {
+  background: rgba(255,255,255,0.08);
+  border: 2px solid rgba(255,255,255,0.15);
+  padding: 9px 22px;
+  border-radius: 30px;
+  font-size: 14px;
+  font-weight: 600;
+  color: #cbd5e1;
+  cursor: pointer;
+  transition: all .2s;
+}
+.diff-btn:hover { background: rgba(255,255,255,0.14); }
+.diff-btn.active {
+  background: linear-gradient(135deg, #f093fb55, #f5576c55);
+  border-color: #f5576c;
+  color: white;
+}
+
+.start-btn {
+  background: linear-gradient(135deg, #f093fb, #f5576c);
+  border: none;
+  padding: 16px 52px;
+  border-radius: 50px;
+  font-size: 20px;
+  font-weight: 800;
+  color: white;
+  cursor: pointer;
+  box-shadow: 0 8px 32px rgba(245,87,108,.45);
+  transition: transform .2s, box-shadow .2s;
+}
+.start-btn:hover { transform: translateY(-3px); box-shadow: 0 14px 40px rgba(245,87,108,.6); }
+.start-btn:active { transform: translateY(1px); }
+
+.rules {
+  color: #475569;
+  font-size: 13px;
+  line-height: 2;
+  text-align: center;
+}
+.rules strong { color: #94a3b8; }
+
+/* ── GAME SCREEN ── */
+#game-screen { gap: 14px; padding: 20px 16px; width: 100vw; max-width: 540px; }
+
+.hud {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  width: 100%;
+  background: rgba(255,255,255,0.06);
+  border-radius: 16px;
+  padding: 10px 20px;
+  backdrop-filter: blur(8px);
+}
+.hud-item { text-align: center; }
+.hud-label { font-size: 10px; text-transform: uppercase; letter-spacing: 1px; color: #64748b; }
+.hud-value { font-size: 22px; font-weight: 800; color: #f1f5f9; }
+
+.round-dots { display: flex; gap: 7px; align-items: center; }
+.rdot {
+  width: 9px; height: 9px;
+  border-radius: 50%;
+  background: rgba(255,255,255,0.18);
+  transition: background .3s;
+}
+.rdot.done { background: #4ade80; }
+.rdot.cur  { background: #fda085; animation: dotBeat .9s infinite; }
+@keyframes dotBeat { 0%,100%{transform:scale(1)} 50%{transform:scale(1.5)} }
+
+.timer-wrap {
+  width: 100%;
+  height: 5px;
+  background: rgba(255,255,255,0.1);
+  border-radius: 3px;
+  overflow: hidden;
+}
+.timer-fill {
+  height: 100%;
+  width: 100%;
+  background: linear-gradient(90deg, #4ade80, #fda085, #f5576c);
+  border-radius: 3px;
+  transform-origin: left;
+  transition: width 1s linear;
+}
+
+.msg-bar {
+  font-size: 15px;
+  font-weight: 600;
+  color: #fda085;
+  min-height: 22px;
+  text-align: center;
+  transition: color .3s;
+}
+.msg-bar.good { color: #4ade80; }
+.msg-bar.bad  { color: #f87171; }
+
+/* ── CHARACTERS GRID ── */
+.chars-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 12px;
+  width: 100%;
+}
+
+/* ── CHARACTER CARD ── */
+.c-card {
+  background: rgba(255,255,255,0.06);
+  border: 2px solid rgba(255,255,255,0.1);
+  border-radius: 18px;
+  padding: 14px 10px 10px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 7px;
+  cursor: pointer;
+  position: relative;
+  transition: transform .18s, border-color .18s, background .18s;
+  backdrop-filter: blur(4px);
+}
+.c-card:hover:not(.asleep):not(.dead) {
+  transform: translateY(-5px) scale(1.04);
+  border-color: rgba(240,147,251,.55);
+  background: rgba(255,255,255,0.11);
+}
+.c-card.asleep {
+  opacity: .45;
+  cursor: default;
+  filter: grayscale(.5);
+  pointer-events: none;
+}
+.c-card.flash-wrong {
+  animation: shakeCard .4s;
+  border-color: #f87171 !important;
+  background: rgba(248,113,113,.15) !important;
+}
+.c-card.flash-right {
+  border-color: #4ade80 !important;
+  background: rgba(74,222,128,.15) !important;
+  animation: popCard .35s;
+}
+.c-card.revealed {
+  border-color: #f5576c !important;
+  background: rgba(245,87,108,.12) !important;
+}
+@keyframes shakeCard {
+  0%,100%{transform:translateX(0)}
+  25%{transform:translateX(-7px)}
+  75%{transform:translateX(7px)}
+}
+@keyframes popCard {
+  0%{transform:scale(1)}
+  50%{transform:scale(1.12)}
+  100%{transform:scale(1)}
+}
+
+/* ── FACE ── */
+.face-wrap { position: relative; width: 70px; height: 70px; }
+
+.face {
+  width: 70px; height: 70px;
+  border-radius: 50%;
+  position: relative;
+  overflow: hidden;
+  box-shadow: 0 4px 12px rgba(0,0,0,.3);
+}
+
+/* cheek blush */
+.face::before, .face::after {
+  content:'';
+  position: absolute;
+  width: 16px; height: 9px;
+  border-radius: 50%;
+  background: rgba(255,255,255,.18);
+  bottom: 20px;
+}
+.face::before { left: 5px; }
+.face::after  { right: 5px; }
+
+.eyes-row {
+  position: absolute;
+  top: 24px; left: 0; right: 0;
+  display: flex;
+  justify-content: center;
+  gap: 14px;
+}
+.eye {
+  width: 11px; height: 11px;
+  background: rgba(0,0,0,.75);
+  border-radius: 50%;
+  position: relative;
+  transition: height .06s, border-radius .06s;
+}
+.eye::after {
+  content:'';
+  position: absolute;
+  width: 3px; height: 3px;
+  background: rgba(255,255,255,.9);
+  border-radius: 50%;
+  top: 1px; left: 2px;
+}
+/* closed / winking */
+.eye.closed, .eye.winking {
+  height: 2px;
+  border-radius: 2px;
+}
+.eye.closed::after, .eye.winking::after { display:none; }
+
+/* mouth */
+.mouth {
+  position: absolute;
+  bottom: 13px;
+  left: 50%; transform: translateX(-50%);
+  width: 22px; height: 11px;
+  border: 3px solid rgba(0,0,0,.65);
+  border-top: none;
+  border-radius: 0 0 50% 50%;
+  transition: all .3s;
+}
+/* nervous */
+.c-card.nervous .mouth {
+  border-top: 3px solid rgba(0,0,0,.65);
+  border-bottom: none;
+  border-radius: 50% 50% 0 0;
+  bottom: 15px;
+}
+/* sleeping */
+.c-card.asleep .mouth {
+  width: 14px; height: 7px;
+}
+
+/* zzz overlay */
+.zzz {
+  position: absolute;
+  top: -8px; right: -8px;
+  font-size: 17px;
+  display: none;
+  animation: floatZ 1.4s ease-in-out infinite;
+}
+.c-card.asleep .zzz { display: block; }
+@keyframes floatZ {
+  0%,100%{transform:translateY(0) rotate(-8deg);opacity:.8}
+  50%{transform:translateY(-7px) rotate(6deg);opacity:1}
+}
+
+/* wink spark on the assassin */
+.wink-spark {
+  position: absolute;
+  top: -11px; right: -7px;
+  font-size: 15px;
+  display: none;
+  pointer-events: none;
+  z-index: 10;
+}
+.wink-spark.pop {
+  display: block;
+  animation: sparkPop .45s ease-out forwards;
+}
+@keyframes sparkPop {
+  0%{transform:scale(0) rotate(-20deg);opacity:1}
+  60%{transform:scale(1.4) rotate(10deg);opacity:1}
+  100%{transform:scale(.8) rotate(0deg);opacity:0}
+}
+
+/* skull for dead (all victims dead) */
+.skull {
+  position: absolute;
+  top: -10px; left: -6px;
+  font-size: 15px;
+  display: none;
+}
+.c-card.asleep .skull { display: block; }
+
+.c-name {
+  font-size: 13px;
+  font-weight: 700;
+  color: #e2e8f0;
+  letter-spacing: .3px;
+}
+
+.hint-text {
+  font-size: 12px;
+  color: #475569;
+  text-align: center;
+}
+
+/* ── RESULT SCREEN ── */
+#result-screen { gap: 22px; text-align: center; padding: 40px 24px; }
+
+.r-title {
+  font-size: 52px;
+  font-weight: 900;
+  line-height: 1.1;
+}
+.r-title.win {
+  background: linear-gradient(135deg, #4ade80, #22d3ee);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+.r-title.lose {
+  background: linear-gradient(135deg, #f87171, #fda085);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+.r-score { font-size: 20px; color: #94a3b8; }
+.r-score em { color: #fda085; font-style: normal; font-size: 36px; font-weight: 900; }
+.r-detail { color: #64748b; font-size: 15px; max-width: 300px; line-height: 1.6; }
+
+/* ── FLOATING PARTICLES ── */
+.particle {
+  position: fixed;
+  pointer-events: none;
+  font-size: 18px;
+  z-index: 200;
+  animation: ptFloat .9s ease-out forwards;
+}
+@keyframes ptFloat {
+  0%{transform:translateY(0) scale(1);opacity:1}
+  100%{transform:translateY(-70px) scale(.4);opacity:0}
+}
+
+/* ── STARS BG ── */
+.stars {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  overflow: hidden;
+  z-index: 0;
+}
+.star {
+  position: absolute;
+  width: 2px; height: 2px;
+  border-radius: 50%;
+  background: white;
+  animation: twinkle var(--d, 3s) ease-in-out infinite var(--delay, 0s);
+  opacity: .4;
+}
+@keyframes twinkle { 0%,100%{opacity:.15} 50%{opacity:.7} }
+
+#start-screen, #game-screen, #result-screen { position: relative; z-index: 1; }
+</style>
+</head>
+<body>
+
+<!-- stars background -->
+<div class="stars" id="stars-bg"></div>
+
+<!-- ═══════════════════════════════════════ START SCREEN -->
+<div id="start-screen" class="screen active">
+  <div class="game-title">😉 Wink!</div>
+  <div class="game-subtitle">
+    人群里藏着一个<strong style="color:#f5576c">眨眼杀手</strong>，<br>
+    他会悄悄对受害者眨眼，让人沉睡。<br>
+    在所有人倒下前，揪出那个人！
+  </div>
+
+  <div class="diff-row">
+    <button class="diff-btn active" data-diff="easy">😌 简单</button>
+    <button class="diff-btn" data-diff="normal">😤 普通</button>
+    <button class="diff-btn" data-diff="hard">🔥 困难</button>
+  </div>
+
+  <button class="start-btn" id="start-btn">开 始 游 戏</button>
+
+  <div class="rules">
+    <strong>点击你怀疑的角色来指认</strong><br>
+    答对 <strong style="color:#4ade80">+100分</strong> · 答错 <strong style="color:#f87171">-30分 & 扣血</strong><br>
+    受害者倒下 <strong style="color:#f87171">-15分</strong> · 共 5 局
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════ GAME SCREEN -->
+<div id="game-screen" class="screen">
+  <div class="hud">
+    <div class="hud-item">
+      <div class="hud-label">得分</div>
+      <div class="hud-value" id="score-val">0</div>
+    </div>
+    <div class="hud-item">
+      <div class="round-dots" id="round-dots"></div>
+    </div>
+    <div class="hud-item">
+      <div class="hud-label">生命</div>
+      <div class="hud-value" id="lives-val">❤️❤️❤️</div>
+    </div>
+  </div>
+
+  <div class="timer-wrap">
+    <div class="timer-fill" id="timer-fill"></div>
+  </div>
+
+  <div class="msg-bar" id="msg-bar">👀 仔细观察！</div>
+
+  <div class="chars-grid" id="chars-grid"></div>
+
+  <div class="hint-text">👆 点击你怀疑的角色来指认杀手</div>
+</div>
+
+<!-- ═══════════════════════════════════════ RESULT SCREEN -->
+<div id="result-screen" class="screen">
+  <div class="r-title" id="r-title">游戏结束</div>
+  <div class="r-score">最终得分：<em id="r-score-val">0</em></div>
+  <div class="r-detail" id="r-detail"></div>
+  <button class="start-btn" id="restart-btn">再来一局</button>
+</div>
+
+<script>
+/* ═══════════════════════════════════════════════════
+   CONFIG
+═══════════════════════════════════════════════════ */
+const DIFF = {
+  easy:   { winkMs: 480, victimMs: 5200, intervalMin: 4500, intervalMax: 7500, roundSec: 32 },
+  normal: { winkMs: 260, victimMs: 3800, intervalMin: 3000, intervalMax: 5500, roundSec: 26 },
+  hard:   { winkMs: 140, victimMs: 2600, intervalMin: 2000, intervalMax: 3800, roundSec: 20 },
+};
+
+const CHARS = [
+  { name:'小明', bg:'#FFCA6B' },
+  { name:'小红', bg:'#FF8FAB' },
+  { name:'阿强', bg:'#5DC9A8' },
+  { name:'莉莉', bg:'#B48EF5' },
+  { name:'老王', bg:'#6FB0F5' },
+  { name:'小花', bg:'#F07F7F' },
+];
+
+const TOTAL_ROUNDS = 5;
+
+/* ═══════════════════════════════════════════════════
+   STATE
+═══════════════════════════════════════════════════ */
+let diff = 'easy';
+let score = 0, lives = 3;
+let round = 0, assassin = -1;
+let roundActive = false;
+let winkTid = null, roundTid = null;
+let victimTids = [];
+let timeLeft = 0;
+let cardEls = [], states = []; // 'alive' | 'asleep'
+let wrongThisRound = 0;
+
+/* ═══════════════════════════════════════════════════
+   UTILS
+═══════════════════════════════════════════════════ */
+function rand(a,b){ return a + Math.random()*(b-a); }
+
+function showScreen(id){
+  document.querySelectorAll('.screen').forEach(s=>s.classList.remove('active'));
+  document.getElementById(id).classList.add('active');
+}
+
+function setMsg(txt, cls=''){
+  const el = document.getElementById('msg-bar');
+  el.textContent = txt;
+  el.className = 'msg-bar ' + cls;
+}
+
+function updateHUD(){
+  document.getElementById('score-val').textContent = score;
+  document.getElementById('lives-val').textContent =
+    '❤️'.repeat(lives) + '🖤'.repeat(3-lives);
+}
+
+function buildDots(){
+  const c = document.getElementById('round-dots');
+  c.innerHTML = '';
+  for(let i=0;i<TOTAL_ROUNDS;i++){
+    const d = document.createElement('div');
+    d.className = 'rdot' + (i<round?' done':i===round?' cur':'');
+    c.appendChild(d);
+  }
+}
+
+function spawnParticle(el, emoji){
+  const r = el.getBoundingClientRect();
+  const p = document.createElement('div');
+  p.className = 'particle';
+  p.textContent = emoji;
+  p.style.left = (r.left + r.width/2 - 12) + 'px';
+  p.style.top  = (r.top  + r.height/2) + 'px';
+  document.body.appendChild(p);
+  setTimeout(()=>p.remove(), 1000);
+}
+
+/* ═══════════════════════════════════════════════════
+   BUILD STARS
+═══════════════════════════════════════════════════ */
+(function buildStars(){
+  const bg = document.getElementById('stars-bg');
+  for(let i=0;i<80;i++){
+    const s = document.createElement('div');
+    s.className = 'star';
+    s.style.left = rand(0,100)+'%';
+    s.style.top  = rand(0,100)+'%';
+    s.style.setProperty('--d', rand(2,5)+'s');
+    s.style.setProperty('--delay', rand(0,4)+'s');
+    bg.appendChild(s);
+  }
+})();
+
+/* ═══════════════════════════════════════════════════
+   BUILD CHARACTER CARDS
+═══════════════════════════════════════════════════ */
+function buildGrid(){
+  const grid = document.getElementById('chars-grid');
+  grid.innerHTML = '';
+  cardEls = []; states = [];
+  CHARS.forEach((ch, i)=>{
+    const card = document.createElement('div');
+    card.className = 'c-card';
+    card.dataset.i = i;
+    card.innerHTML = `
+      <div class="face-wrap">
+        <div class="face" style="background:${ch.bg}">
+          <div class="eyes-row">
+            <div class="eye" id="eL${i}"></div>
+            <div class="eye" id="eR${i}"></div>
+          </div>
+          <div class="mouth" id="mouth${i}"></div>
+        </div>
+        <div class="zzz">💤</div>
+        <div class="wink-spark" id="spark${i}">😉</div>
+      </div>
+      <div class="c-name">${ch.name}</div>
+    `;
+    card.addEventListener('click', ()=>onAccuse(i));
+    grid.appendChild(card);
+    cardEls.push(card);
+    states.push('alive');
+  });
+}
+
+/* ═══════════════════════════════════════════════════
+   IDLE BLINK  (runs every 700ms)
+═══════════════════════════════════════════════════ */
+setInterval(()=>{
+  cardEls.forEach((card, i)=>{
+    if(states[i] !== 'alive') return;
+    // small chance of a natural blink (both eyes)
+    if(Math.random() < 0.12){
+      const eL = document.getElementById(`eL${i}`);
+      const eR = document.getElementById(`eR${i}`);
+      if(!eL || !eR) return;
+      // don't interfere while assassin is winking right eye
+      if(i === assassin && eR.classList.contains('winking')) return;
+      eL.classList.add('closed'); eR.classList.add('closed');
+      setTimeout(()=>{ eL.classList.remove('closed'); eR.classList.remove('closed'); }, 110);
+    }
+    // random head bob via subtle transform
+    if(Math.random() < 0.06){
+      card.style.transform = 'translateY(-2px) rotate(1deg)';
+      setTimeout(()=>{ card.style.transform=''; }, 200);
+    }
+  });
+}, 700);
+
+/* ═══════════════════════════════════════════════════
+   WINK MECHANIC
+═══════════════════════════════════════════════════ */
+function doWink(){
+  if(!roundActive) return;
+  const cfg = DIFF[diff];
+
+  // pick a living non-assassin victim
+  const pool = states.map((s,i)=>({s,i})).filter(({s,i})=>s==='alive'&&i!==assassin);
+  if(!pool.length){ endRound(false); return; }
+  const victim = pool[Math.floor(Math.random()*pool.length)];
+
+  // assassin winks right eye
+  const eR = document.getElementById(`eR${assassin}`);
+  const spark = document.getElementById(`spark${assassin}`);
+  if(eR){ eR.classList.add('winking'); }
+  if(spark){
+    spark.classList.remove('pop');
+    void spark.offsetWidth;
+    spark.classList.add('pop');
+  }
+  setTimeout(()=>{
+    if(eR) eR.classList.remove('winking');
+    if(spark) spark.classList.remove('pop');
+  }, cfg.winkMs);
+
+  // victim falls asleep after delay
+  const tid = setTimeout(()=>{
+    if(!roundActive) return;
+    makeAsleep(victim.i);
+  }, cfg.victimMs);
+  victimTids.push(tid);
+
+  scheduleWink();
+}
+
+function scheduleWink(){
+  if(!roundActive) return;
+  const cfg = DIFF[diff];
+  winkTid = setTimeout(doWink, rand(cfg.intervalMin, cfg.intervalMax));
+}
+
+function makeAsleep(i){
+  if(states[i] !== 'alive') return;
+  states[i] = 'asleep';
+  cardEls[i].classList.add('asleep');
+  spawnParticle(cardEls[i], '💤');
+  score = Math.max(0, score - 15);
+  updateHUD();
+
+  const aliveLeft = states.filter(s=>s==='alive').length;
+  if(aliveLeft <= 1){ // only assassin standing
+    setMsg('😵 所有人都倒下了！', 'bad');
+    endRound(false);
+  }
+}
+
+/* ═══════════════════════════════════════════════════
+   ACCUSATION
+═══════════════════════════════════════════════════ */
+function onAccuse(i){
+  if(!roundActive) return;
+  if(states[i] === 'asleep') return;
+
+  if(i === assassin){
+    // ✅ CORRECT
+    const pts = Math.max(100 - wrongThisRound*25, 30);
+    score += pts;
+    cardEls[i].classList.add('flash-right');
+    spawnParticle(cardEls[i], '🎉');
+    spawnParticle(cardEls[i], '✨');
+    setMsg(`🎯 找到了！+${pts}分`, 'good');
+    updateHUD();
+    setTimeout(()=>endRound(true), 900);
+  } else {
+    // ❌ WRONG
+    wrongThisRound++;
+    score = Math.max(0, score - 30);
+    lives--;
+    cardEls[i].classList.add('flash-wrong');
+    spawnParticle(cardEls[i], '❌');
+    updateHUD();
+    setTimeout(()=>cardEls[i].classList.remove('flash-wrong'), 500);
+
+    if(lives <= 0){
+      setMsg('💔 生命耗尽！', 'bad');
+      setTimeout(()=>endGame(), 900);
+      return;
+    }
+    setMsg(`❌ 不是他！-30分 还剩${lives}条命`, 'bad');
+    setTimeout(()=> setMsg('👀 继续观察……'), 1800);
+  }
+}
+
+/* ═══════════════════════════════════════════════════
+   ROUND FLOW
+═══════════════════════════════════════════════════ */
+function startRound(){
+  roundActive = true;
+  wrongThisRound = 0;
+  victimTids = [];
+
+  buildGrid();
+  assassin = Math.floor(Math.random() * CHARS.length);
+  buildDots();
+  updateHUD();
+
+  const cfg = DIFF[diff];
+  timeLeft = cfg.roundSec;
+  const fill = document.getElementById('timer-fill');
+  fill.style.transition = 'none';
+  fill.style.width = '100%';
+  void fill.offsetWidth;
+  fill.style.transition = `width ${cfg.roundSec}s linear`;
+  fill.style.width = '0%';
+
+  setMsg(`👀 第${round+1}局 — 找出眨眼的人！`);
+
+  // first wink after short pause
+  winkTid = setTimeout(()=>{
+    if(roundActive) scheduleWink();
+  }, 2000);
+
+  // countdown
+  roundTid = setInterval(()=>{
+    timeLeft--;
+    if(timeLeft <= 5 && timeLeft > 0)
+      setMsg(`⏰ 还剩 ${timeLeft} 秒！快点！`, 'bad');
+    if(timeLeft <= 0){
+      setMsg('⏰ 时间到了！', 'bad');
+      endRound(false);
+    }
+  }, 1000);
+}
+
+function endRound(won){
+  if(!roundActive) return;
+  roundActive = false;
+  clearTimeout(winkTid);
+  clearInterval(roundTid);
+  victimTids.forEach(clearTimeout);
+
+  // reveal assassin
+  cardEls[assassin].classList.add('revealed');
+  if(!won){
+    score = Math.max(0, score - 20);
+    updateHUD();
+    setMsg(`🔪 杀手是${CHARS[assassin].name}！-20分`, 'bad');
+  }
+  round++;
+  if(round >= TOTAL_ROUNDS){
+    setTimeout(endGame, 1400);
+  } else {
+    setTimeout(startRound, 2200);
+  }
+}
+
+function endGame(){
+  roundActive = false;
+  clearTimeout(winkTid);
+  clearInterval(roundTid);
+  victimTids.forEach(clearTimeout);
+
+  document.getElementById('r-score-val').textContent = score;
+  const title  = document.getElementById('r-title');
+  const detail = document.getElementById('r-detail');
+
+  if(lives <= 0){
+    title.textContent = '💔 游戏结束';
+    title.className = 'r-title lose';
+    detail.textContent = '生命耗尽了，多练练眼力吧！';
+  } else if(score >= 420){
+    title.textContent = '🏆 侦探大师！';
+    title.className = 'r-title win';
+    detail.textContent = '完美！没有任何杀手能逃过你的眼睛。';
+  } else if(score >= 250){
+    title.textContent = '🎯 干得漂亮！';
+    title.className = 'r-title win';
+    detail.textContent = '眼力不错，再练练能更快识破杀手！';
+  } else if(score >= 100){
+    title.textContent = '🙂 还不错';
+    title.className = 'r-title win';
+    detail.textContent = '有点感觉了，多练几局就会更厉害。';
+  } else {
+    title.textContent = '😅 继续加油';
+    title.className = 'r-title lose';
+    detail.textContent = '杀手太狡猾了，眨眼更快你就能抓住他！';
+  }
+  showScreen('result-screen');
+}
+
+/* ═══════════════════════════════════════════════════
+   LISTENERS
+═══════════════════════════════════════════════════ */
+document.querySelectorAll('.diff-btn').forEach(btn=>{
+  btn.addEventListener('click',()=>{
+    document.querySelectorAll('.diff-btn').forEach(b=>b.classList.remove('active'));
+    btn.classList.add('active');
+    diff = btn.dataset.diff;
+  });
+});
+
+document.getElementById('start-btn').addEventListener('click',()=>{
+  score = 0; lives = 3; round = 0;
+  showScreen('game-screen');
+  startRound();
+});
+
+document.getElementById('restart-btn').addEventListener('click',()=>{
+  showScreen('start-screen');
+});
+</script>
+</body>
+</html>
